@@ -3,7 +3,7 @@ import { Outlet, Link, Navigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { useLocalStorage } from "../CustomHooks/useLocalStorage";
 function Header() {
-    const [user, setUser] = useLocalStorage("user",{})
+    const [user, setUser] = useLocalStorage("user","")
 
     const handleLogout = () => {
         setUser("")

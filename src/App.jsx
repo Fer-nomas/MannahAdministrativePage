@@ -8,12 +8,12 @@ import Excel from "./pages/Excel.jsx";
 import { useState, useEffect } from "react";
 import { collection, onSnapshot ,getDocs} from "firebase/firestore";
 import { db } from "../firebase/firebase.js";
-import { useLocalStorage } from "./CustomHooks/useLocalStorage.js";
+
 import { vendedores } from "./Vendedores.js";
 import Loading from "./Loading/Loading.jsx";
 
 function App() {
-  const [client, setClient] = useLocalStorage("clientes", "");
+  const [client, setClient] = useState("");
   const [infos, setInfos] = useState([]);
   const [clientsLoaded, setClientsLoaded] = useState(false);
 
