@@ -73,9 +73,9 @@ export const getData = async (e, setInputs, setEditMode) => {
             })
             setEditMode(true)
         }
-        
+
     })
-    
+
 };
 
 const validateInput = (name, value) => {
@@ -186,18 +186,11 @@ export const selectOption = (option, i, inputs, setInputs, setIsOpen) => {
     const pastOption = option
 
     if (inputs.estado[inputs.estado.length - 1] != "Cancelar Nota") {
-        console.log(options[inputs.estado.length], pastOption)
-        if (options[inputs.estado.length] == pastOption || option == "Cancelar Nota") {
-            setInputs({
-                ...inputs,
-                "estado": tempOption,
-                "hora": tempHour
-            })
-        } else {
-            toast.error('Error al ingresar estado', {
-                autoClose: 1400
-            });
-        }
+        setInputs({
+            ...inputs,
+            "estado": tempOption,
+            "hora": tempHour
+        })
     } else {
         toast.error('Esta nota ya ha sido cancelada', {
             autoClose: 1400
