@@ -9,10 +9,9 @@ import { IoIosArrowDown } from "react-icons/io";
 import { collection, addDoc, getDocs, updateDoc, doc } from "firebase/firestore";
 import { db } from "../../firebase/firebase";
 import { useLocalStorage } from "../CustomHooks/useLocalStorage";
-import { clearInputs, handleChange, updateData, selectOption, getDateNow } from "../Functions";
+import { clearInputs, handleChange, updateData, getDateNow } from "../Functions";
 
-function AgregarDatos() {
-
+function AgregarDatos({ infos }) {
     const input1Ref = useRef(null);
     const input2Ref = useRef(null);
     const input3Ref = useRef(null);
@@ -28,7 +27,9 @@ function AgregarDatos() {
         factura: '',
         remision: '',
         cliente: '',
+        clienteNum: "",
         vendedor: "",
+        vendedorNum: "",
         estado: ["Facturado"],
         hora: [getDateNow()],
         deposito: "",
@@ -40,7 +41,7 @@ function AgregarDatos() {
 
         if (user.permission == "Admin") {
             options = ['Facturado', 'Deposito', 'Salida de Deposito', "Entregado", "Contable Recibido", "Cancelar Nota"];
-        } else if (user.permission == "Deposito") {
+        } else if (user.permission == "Deposito Centro" || user.permission == "Deposito Km10") {
             options = ['Salida de Deposito', "Entregado"];
         } else if (user.permission == "Contable") {
             options = ["Contable Recibido"];
@@ -52,13 +53,17 @@ function AgregarDatos() {
     }
     optionss();
 
-    const handleKeyDown = (event, nextInputRef, firstInputRef) => {
+    const handleKeyDown = (event, nextInputRef, pastInputRef) => {
         if (event.key === 'Enter') {
             event.preventDefault();
             if (nextInputRef && nextInputRef.current) {
                 nextInputRef.current.focus();
-            } else if (firstInputRef && firstInputRef.current) {
-                firstInputRef.current.focus();
+            }
+        }
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            if (pastInputRef && pastInputRef.current) {
+                pastInputRef.current.focus();
             }
         }
     };
@@ -81,9 +86,52 @@ function AgregarDatos() {
         input1Ref.current.focus();
     };
 
+    const validarDatos = () => {
+
+        if (inputs.estado[inputs.estado.length - 1] == "Cancelar Nota" && inputs.observacion.trim() == "") {
+
+            toast.error("Debe proporcionar una observación al seleccionar 'Cancelar Nota'");
+            return false;
+        }
+        return true;
+    };
+
+    const selectOption = (option) => {
+
+        let estadoFinal = [...inputs.estado];
+        let horaFinal = [...inputs.hora];
+
+        if (!estadoFinal.includes(option)) {
+            estadoFinal.push(option);
+            horaFinal.push(getDateNow());
+        }
+
+        // Asegurarse de que el número de estados coincida con el número de horas
+        if (estadoFinal.length !== horaFinal.length) {
+            horaFinal = estadoFinal.map((_, index) => horaFinal[index] || getDateNow());
+        }
+
+        if (inputs.estado[inputs.estado.length - 1] !== "Cancelar Nota") {
+            setInputs({
+                ...inputs,
+                estado: estadoFinal,
+                hora: horaFinal
+            });
+        } else {
+            toast.error('Esta nota ya ha sido cancelada', {
+                autoClose: 1400
+            });
+        }
+
+        setIsOpen(false);
+    };
+
     const guardarDatos = () => {
-        updateData(inputs, toast, setInputs, editMode, user);
-        setEditMode(false);
+
+        if (validarDatos()) {
+            updateData(inputs, toast, setInputs, editMode, user);
+            setEditMode(false);
+        }
     };
 
     const handleSaveKey = async (event) => {
@@ -105,41 +153,44 @@ function AgregarDatos() {
             {!editMode && user.permission == "Admin" ? <h1 className="m-6 text-3xl text-blue-500">Agregar Datos</h1> : <h1 className="m-6 text-3xl text-orange-500">Editando Datos</h1>}
 
             <div className='flex flex-wrap justify-center items-center gap-4 p-4 px-10 border-[1px] rounded-lg'>
-                {inputs.factura !== undefined && (
-                    <div className='flex flex-col gap-2 text-base font-medium'>
-                        <span className='ml-2'>Factura</span>
-                        <div className="bg-[#7878CE1A] px-4 py-2 rounded-xl flex text-sm item-center">
-                            <input
-                                ref={input1Ref}
-                                onKeyDown={(event) => handleKeyDown(event, input2Ref, input1Ref)}
-                                value={inputs.factura}
-                                onChange={(event) => handleChange(event, setInputs, inputs, setEditMode)}
-                                placeholder="000-0000000"
-                                className="overflow-hidden bg-transparent outline-none"
-                                type="text"
-                                name="factura"
-                            />
-                        </div>
-                    </div>
-                )}
-
                 {inputs.remision !== undefined && (
                     <div className='flex flex-col gap-2 text-base font-medium'>
                         <span className='ml-2'>Remision</span>
                         <div className="bg-[#7878CE1A] px-4 py-2 rounded-xl flex text-sm item-center">
                             <input
-                                ref={input2Ref}
-                                onKeyDown={(event) => handleKeyDown(event, input3Ref, input1Ref)}
-                                onChange={(event) => handleChange(event, setInputs, inputs, setEditMode)}
-                                placeholder="0000000"
+                                ref={input1Ref}
+                                onKeyDown={(event) => handleKeyDown(event, input2Ref, input7Ref)}
+                                onChange={(event) => handleChange(event, setInputs, inputs, setEditMode, options, infos)}
+                                placeholder="000000"
                                 className="overflow-hidden bg-transparent outline-none"
                                 type="text"
+                                autoComplete="off"
                                 name="remision"
                                 value={inputs.remision}
                             />
                         </div>
                     </div>
                 )}
+                {inputs.factura !== undefined && (
+                    <div className='flex flex-col gap-2 text-base font-medium'>
+                        <span className='ml-2'>Factura</span>
+                        <div className="bg-[#7878CE1A] px-4 py-2 rounded-xl flex text-sm item-center">
+                            <input
+                                ref={input2Ref}
+                                onKeyDown={(event) => handleKeyDown(event, input3Ref, input1Ref)}
+                                value={inputs.factura}
+                                onChange={(event) => handleChange(event, setInputs, inputs, setEditMode, options, infos)}
+                                placeholder="0000000"
+                                className="overflow-hidden bg-transparent outline-none"
+                                type="text"
+                                autoComplete="off"
+                                name="factura"
+                            />
+                        </div>
+                    </div>
+                )}
+
+
 
                 {inputs.cliente !== undefined && (
                     <div className='flex flex-col gap-2 text-base font-medium'>
@@ -147,13 +198,15 @@ function AgregarDatos() {
                         <div className="bg-[#7878CE1A] px-4 py-2 rounded-xl flex text-sm item-center">
                             <input
                                 ref={input3Ref}
-                                onKeyDown={(event) => handleKeyDown(event, input4Ref, input1Ref)}
+                                onKeyDown={(event) => handleKeyDown(event, input4Ref, input2Ref)}
                                 onChange={(event) => handleChange(event, setInputs, inputs, setEditMode)}
                                 placeholder="00000"
                                 className="overflow-hidden bg-transparent outline-none"
                                 type="text"
+                                autoComplete="off"
                                 name="cliente"
                                 value={inputs.cliente}
+                                readOnly={(editMode && user.permission != "Admin")}
                             />
                         </div>
                     </div>
@@ -165,13 +218,15 @@ function AgregarDatos() {
                         <div className="bg-[#7878CE1A] px-4 py-2 rounded-xl flex text-sm item-center">
                             <input
                                 ref={input4Ref}
-                                onKeyDown={(event) => handleKeyDown(event, input5Ref, input1Ref)}
+                                onKeyDown={(event) => handleKeyDown(event, input5Ref, input3Ref)}
                                 onChange={(event) => handleChange(event, setInputs, inputs, setEditMode)}
                                 placeholder="000"
                                 className="overflow-hidden bg-transparent outline-none"
                                 type="text"
+                                autoComplete="off"
                                 name="vendedor"
                                 value={inputs.vendedor}
+                                readOnly={(editMode && user.permission != "Admin")}
                             />
                         </div>
                     </div>
@@ -183,13 +238,15 @@ function AgregarDatos() {
                     <div className="bg-[#7878CE1A] px-4 py-2 rounded-xl flex text-sm item-center">
                         <input
                             ref={input5Ref}
-                            onKeyDown={(event) => handleKeyDown(event, input6Ref, input1Ref)}
+                            onKeyDown={(event) => handleKeyDown(event, input6Ref, input4Ref)}
                             onChange={(event) => handleChange(event, setInputs, inputs, setEditMode)}
                             placeholder="1 - 2"
                             className="overflow-hidden bg-transparent outline-none"
                             type="text"
+                            autoComplete="off"
                             name="deposito"
                             value={inputs.deposito}
+                            readOnly={(editMode && user.permission != "Admin")}
                         />
                     </div>
                 </div>
@@ -201,13 +258,15 @@ function AgregarDatos() {
                     <div className="bg-[#7878CE1A] px-4 py-2 rounded-xl flex text-sm item-center">
                         <input
                             ref={input6Ref}
-                            onKeyDown={(event) => handleKeyDown(event, input7Ref, input1Ref)}
+                            onKeyDown={(event) => handleKeyDown(event, input7Ref, input5Ref)}
                             onChange={(event) => handleChange(event, setInputs, inputs, setEditMode)}
                             placeholder="Obs"
                             className="overflow-hidden bg-transparent outline-none"
                             type="text"
+                            autoComplete="off"
                             name="observacion"
                             value={inputs.observacion}
+
                         />
                     </div>
                 </div>
@@ -219,13 +278,15 @@ function AgregarDatos() {
                     <div className="bg-[#7878CE1A] px-4 py-2 rounded-xl flex text-sm item-center">
                         <input
                             ref={input7Ref}
-                            onKeyDown={(event) => handleKeyDown(event, input1Ref, input1Ref)}
+                            onKeyDown={(event) => handleKeyDown(event, input1Ref, input6Ref)}
                             onChange={(event) => handleChange(event, setInputs, inputs, setEditMode)}
                             placeholder="$$$"
                             className="overflow-hidden bg-transparent outline-none"
                             type="text"
+                            autoComplete="off"
                             name="valor"
                             value={inputs.valor}
+                            readOnly={(editMode && user.permission != "Admin")}
                         />
                     </div>
                 </div>

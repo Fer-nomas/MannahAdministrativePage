@@ -1,20 +1,18 @@
 import { collection, addDoc, getDocs, updateDoc, doc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
+import moment from 'moment';
 
 export const getDateNow = () => {
-    const date = new Date()
+    const date = new Date();
     const y = date.getFullYear();
-    const m = date.getMonth();
-    const d = date.getDate();
-    let h = date.getHours();
-    let min = date.getMinutes();
+    const m = String(date.getMonth() + 1).padStart(2, '0'); // Formatear el mes a dos dígitos
+    const d = String(date.getDate()).padStart(2, '0'); // Formatear el día a dos dígitos
+    let h = String(date.getHours()).padStart(2, '0'); // Formatear la hora a dos dígitos
+    let min = String(date.getMinutes()).padStart(2, '0'); // Formatear los minutos a dos dígitos
 
-    if (h - 10 < 0) {
-        h = `0${h}`
-    }
     return `${d}/${m}/${y} ${h}:${min}`;
-}
+};
 
 let swit = "";
 const compareData = async (inputs) => {
@@ -30,15 +28,16 @@ const compareData = async (inputs) => {
 
 };
 
-
 export const clearInputs = (setInputs) => {
     setInputs({
         factura: '',
         remision: '',
         cliente: '',
+        clienteNum: "",
         vendedor: "",
+        vendedorNum: "",
         estado: ['Facturado'],
-        hora: [getDateNow()],
+        hora: [],
         deposito: "",
         valor: "",
         observacion: ""
@@ -46,77 +45,146 @@ export const clearInputs = (setInputs) => {
 
 };
 
-export const getData = async (e, setInputs, setEditMode) => {
+export const getData = async (e, setInputs, setEditMode, options, infos, inputs) => {
     const querySnapshot = await getDocs(collection(db, "datos"));
-    querySnapshot.docs.forEach((d) => {
-        if (d.data().factura === e.value && e.name == "factura" && e.value != "") {
-            setInputs({
-                factura: d.data().factura,
-                remision: d.data().remision,
-                cliente: d.data().cliente,
-                vendedor: d.data().vendedor,
-                estado: d.data().estado,
-                hora: d.data().hora,
-                id: d.id
-            })
-            setEditMode(true)
-        }
-        if (d.data().remision === e.value && e.name == "remision") {
-            setInputs({
-                factura: d.data().factura,
-                remision: d.data().remision,
-                cliente: d.data().cliente,
-                vendedor: d.data().vendedor,
-                estado: d.data().estado,
-                hora: d.data().hora,
-                id: d.id
-            })
-            setEditMode(true)
-        }
+    querySnapshot.docs.forEach((d, i) => {
+        if ((d.data().factura === e.value && e.name == "factura" && e.value !== "") || (d.data().remision === e.value && e.name == "remision")) {
+            let estadoFinal = d.data().estado;
+            let horaFinal = d.data().hora;
+            const primerValorOption = options[0];
+            if (!estadoFinal.includes(primerValorOption) && !estadoFinal.includes("Cancelar Nota")) {
+                estadoFinal = [...estadoFinal, primerValorOption];
+                horaFinal = [...horaFinal, getDateNow()];
+            }
+            if (estadoFinal.length !== horaFinal.length) {
+                horaFinal = estadoFinal.map((_, index) => horaFinal[index] || getDateNow());
+            }
 
-    })
+            setInputs({
+                factura: d.data().factura,
+                remision: d.data().remision,
+                clienteNum: d.data().clienteNum,
+                vendedorNum: d.data().vendedorNum,
+                cliente: infos[i].clienteName,
+                vendedor: infos[i].VendedorName,
+                estado: estadoFinal,
+                hora: horaFinal,
+                deposito: d.data().deposito,
+                valor: d.data().valor,
+                observacion: d.data().observacion,
+                id: d.id
+            });
+
+            setEditMode(true);
+        }
+    });
+
 
 };
 
-const validateInput = (name, value) => {
+export const updateData = async (inputs, toast, setInputs, editMode, user) => {
+    if (user.permission !== "Admin") {
+        editMode = true;
+    }
+
+    if (inputs.remision !== "" && inputs.estado) {
+        await compareData(inputs);
+
+        if (inputs.estado.length !== inputs.hora.length) {
+            inputs.hora = inputs.estado.map((_, index) => inputs.hora[index] || getDateNow());
+        }
+
+
+        const updatedInputs = {
+            ...inputs,
+            cliente: inputs.clienteNum,
+            vendedor: inputs.vendedorNum,
+        };
+
+        if (editMode) {
+            console.log(updatedInputs)
+            await updateDoc(doc(db, "datos", inputs.id), updatedInputs);
+            toast.warning('Datos Editados correctamente', {
+                autoClose: 1400
+            });
+            clearInputs(setInputs);
+        } else if (!editMode && swit) {
+            if (inputs.remision.length === 6) {
+                await addDoc(collection(db, "datos"), updatedInputs);
+                toast.success('Datos Añadidos correctamente', {
+                    autoClose: 1400
+                });
+                clearInputs(setInputs);
+            } else {
+                toast.error('El Dato de remision debe contener 6 digitos', {
+                    autoClose: 1400
+                });
+            }
+        } else {
+            toast.error('Datos Iguales', {
+                autoClose: 1400
+            });
+            clearInputs(setInputs);
+        }
+    } else {
+        toast.error('Datos Vacios', {
+            autoClose: 1400
+        });
+        clearInputs(setInputs);
+    }
+};
+
+export const validateInput = (name, value) => {
     let newValue = value;
+
+    const restrictToNumbers = (val, maxLength) => {
+        return val.replace(/\D/g, '').slice(0, maxLength);
+    };
 
     switch (name) {
         case 'factura':
-            // Limitar a letras, números y un guion en la posición correcta
             newValue = newValue.replace(/[^a-zA-Z0-9]/g, ''); // Remover cualquier carácter no alfanumérico
             if (newValue.length > 3) {
-                newValue = `${newValue.slice(0, 3)}-${newValue.slice(3, 10)}`;
+                newValue = `${newValue.slice(0, 6)}`;
             }
             break;
         case 'cliente':
-            // Limitar a números y máximo 5 caracteres
-            newValue = newValue.replace(/\D/g, ''); // Remover cualquier carácter no numérico
-            if (newValue.length > 5) {
-                newValue = newValue.slice(0, 5);
-            }
+            newValue = restrictToNumbers(newValue, 5); // Limitar a números y máximo 5 caracteres
+            break;
+        case 'vendedor':
+            newValue = restrictToNumbers(newValue, 3); // Limitar a números y máximo 3 caracteres
+            break;
+        case 'remision':
+            newValue = restrictToNumbers(newValue, 6); // Limitar a números y máximo 7 caracteres
             break;
         case 'observacion':
-            // Limitar a números y máximo 5 caracteres
-
             if (newValue.length > 50) {
                 newValue = newValue.slice(0, 50);
             }
             break;
-        case 'vendedor':
-            // Limitar a números y máximo 3 caracteres
+        case 'fecha':
             newValue = newValue.replace(/\D/g, ''); // Remover cualquier carácter no numérico
-            if (newValue.length > 3) {
-                newValue = newValue.slice(0, 3);
+            if (newValue.length > 2 && newValue.length <= 4) {
+                newValue = `${newValue.slice(0, 2)}/${newValue.slice(2)}`;
+            } else if (newValue.length > 4) {
+                newValue = `${newValue.slice(0, 2)}/${newValue.slice(2, 4)}/${newValue.slice(4, 8)}`;
             }
             break;
-        case 'remision':
-            // Limitar a números y máximo 7 caracteres
-            newValue = newValue.replace(/\D/g, ''); // Remover cualquier carácter no numérico
-            if (newValue.length > 7) {
-                newValue = newValue.slice(0, 7);
-            }
-            break;
+            case 'valor':
+                // Limitar a números y permitir la coma para decimales
+                newValue = newValue.replace(/[^\d,]/g, ''); // Permitir solo dígitos y coma
+                if (newValue) {
+                    // Verificar si ya hay una coma en el valor
+                    const parts = newValue.split(',');
+                    
+                    // Formatear la parte entera con puntos cada mil
+                    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                    
+                    // Si hay una parte decimal, unir las partes con una coma
+                    newValue = parts.join(',');
+                }
+                break;
+            
         default:
             break;
     }
@@ -124,81 +192,93 @@ const validateInput = (name, value) => {
     return newValue;
 };
 
-export const handleChange = async (event, setInputs, inputs, setEditMode) => {
+
+export const handleChange = async (event, setInputs, inputs, setEditMode, options, infos) => {
     const { name, value } = event.target;
     const validatedValue = validateInput(name, value);
-    setInputs({
-        ...inputs,
-        [name]: validatedValue,
-    });
-    if (event.target.name == "factura" || event.target.name == "remision") {
-        await getData(event.target, setInputs, setEditMode)
+    let updatedInputs = { ...inputs, [name]: validatedValue };
+
+
+    if (name === 'cliente' || name === 'vendedor') {
+        let numericValue = value.replace(/\D/g, '');
+        if (name === 'cliente') {
+            if (numericValue.length > 5) {
+                numericValue = numericValue.slice(0, 5);
+            }
+            updatedInputs = { ...updatedInputs, clienteNum: numericValue };
+        } else if (name === 'vendedor') {
+            if (numericValue.length > 3) {
+                numericValue = numericValue.slice(0, 3);
+            }
+            updatedInputs = { ...updatedInputs, vendedorNum: numericValue };
+        }
     }
+
+    setInputs(updatedInputs);
+
+
+    if (name === "factura" || name === "remision") {
+        await getData(event.target, setInputs, setEditMode, options, infos, updatedInputs);
+    }
+
 
 };
 
+const convertirDatosATexto = (filteredInfos) => {
+    let texto = 'Remision\tCliente-Nombre\tObservacion\n'; // Encabezados
 
+    // Recorrer el array y convertir cada objeto en una línea de texto
+    filteredInfos.forEach(info => {
+        let { factura, remision, cliente, clienteName, vendedor ,valor, deposito, observacion} = info;
+        const estadoString = info.estado[info.estado.length - 1];
+        const fechasString = info.hora[info.hora.length - 1]
+        deposito == 1? deposito = "CENTRO" : deposito = "KM10"
+        texto += `${remision} ; \t ${clienteName} ; \t ${observacion}  \n`;
+    });
 
-export const updateData = async (inputs, toast, setInputs, editMode, user) => {
-    if (user.permission != "Admin") {
-        editMode = true
-    }
-    console.log(inputs)
-    if (inputs.remision != "" && inputs.estado) {
-        await compareData(inputs);
+    return texto;
+};
 
-        if (editMode) {
-            await updateDoc(doc(db, "datos", inputs.id), inputs)
-            toast.warning('Datos Editados correctamente', {
-                autoClose: 1400
-            });
-            clearInputs(setInputs)
-        } else if (!editMode && swit) {
-            await addDoc(collection(db, "datos"), inputs)
-            toast.success('Datos Añadidos correctamente', {
-                autoClose: 1400
-            });
-            clearInputs(setInputs)
-        } else {
-            console.log(!editMode, swit)
-            toast.error('Datos Iguales', {
-                autoClose: 1400
-            });
-            clearInputs(setInputs)
-        }
+export const descargarTxt = (filteredInfos) => {
+    const texto = convertirDatosATexto(filteredInfos); // Convertir datos a texto plano
+    const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' }); // Crear blob
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'datos_infos.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
+export function calcularTiempoTranscurrido(fechas) {
+    const fechasConvertidas = fechas.hora.map(fecha => moment(fecha, "D/M/YYYY HH:mm"));
+    const primeraFecha = fechasConvertidas[0];
+    const ultimaFecha = fechasConvertidas[fechasConvertidas.length - 1];
+    let diferencia;
+    if (primeraFecha || ultimaFecha) {
+        diferencia = moment.duration(ultimaFecha.diff(primeraFecha));
     } else {
-        toast.error('Datos Vacios', {
-            autoClose: 1400
-        });
-        clearInputs(setInputs)
+        return diferencia = "";
     }
 
+    const dias = Math.floor(diferencia.asDays());
+    const horas = Math.floor(diferencia.asHours() % 24);
+    let swit = 0
+    fechas.estado.map((e) => {
+        if (e == "Contable Recibido" || e == "Cancelar Nota") {
+            swit++
+        }
+    })
+    if (swit != 0) {
+        if (horas == 0) {
+            return "< 1 Hora"
+        } else {
+            return `${dias} días y ${horas} horas`;
+        }
+
+    } else {
+        return ""
+    }
 
 
 }
-
-
-export const selectOption = (option, i, inputs, setInputs, setIsOpen) => {
-    const options = ['Facturado', 'Deposito', 'Salida de Deposito', "Entregado", "Contable Recibido", "Cancelar Nota"];
-    const tempOption = [...inputs.estado, option]
-    const tempHour = [...inputs.hora, getDateNow()]
-
-    const pastOption = option
-
-    if (inputs.estado[inputs.estado.length - 1] != "Cancelar Nota") {
-        setInputs({
-            ...inputs,
-            "estado": tempOption,
-            "hora": tempHour
-        })
-    } else {
-        toast.error('Esta nota ya ha sido cancelada', {
-            autoClose: 1400
-        });
-    }
-
-
-    setIsOpen(false);
-
-
-};

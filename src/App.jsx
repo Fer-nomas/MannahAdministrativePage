@@ -6,22 +6,24 @@ import AuthProvider from "../context/AuthContext.jsx";
 import RegistrarUser from "./pages/RegistrarUser.jsx";
 import Excel from "./pages/Excel.jsx";
 import { useState, useEffect } from "react";
-import { collection, onSnapshot ,getDocs} from "firebase/firestore";
+import { collection, onSnapshot, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase.js";
-
+import { useLocalStorage } from "./CustomHooks/useLocalStorage.js";
 import { vendedores } from "./Vendedores.js";
 import Loading from "./Loading/Loading.jsx";
+import InicioSesion from "./pages/InicioSesion.jsx";
 
 function App() {
-  const [client, setClient] = useState("");
-  const [infos, setInfos] = useState([]);
+  const [seller, setSeller] = useLocalStorage("vendedores", []);
+  const [client, setClient] = useLocalStorage("clientes", []);
+  const [infos, setInfos] = useState("");
   const [clientsLoaded, setClientsLoaded] = useState(false);
 
-  // Configura la suscripción a los datos una sola vez
   useEffect(() => {
     const unsubscribeDatos = onSnapshot(collection(db, "datos"), (snapshot) => {
       const data = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
       console.log("Datos Cargados");
+      
       setInfos((prevInfos) => {
         if (JSON.stringify(prevInfos) !== JSON.stringify(data)) {
           // Solo actualiza si los datos han cambiado
@@ -34,26 +36,34 @@ function App() {
     return () => unsubscribeDatos();
   }, []); // Ejecuta solo una vez al montar
 
-  // Configura la suscripción a los clientes una sola vez
+  
   useEffect(() => {
-    const getClient =async ()=>{
-      
-      if (client == []) {
-        const clientSnapshot = await getDocs(collection(db, "clientes"));
-        const clientData = clientSnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
-        console.log("Clientes Cargados")
-        setClient(clientData);
-      }
+    const getClient = async () => {
+      const clientSnapshot = await getDocs(collection(db, "clientes"));
+      const clientData = clientSnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
+      console.log("Clientes Cargados")
+      setClient(clientData);
     }
     getClient();
+  }, []);
+
+  useEffect(() => {
+    const getSeller = async () => {
+      const sellerSnapshot = await getDocs(collection(db, "vendedores"));
+      const sellerData = sellerSnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
+      console.log("Vendedores Cargados")
+      setSeller(sellerData);
+
+    }
+    getSeller();
   }, []);
 
   useEffect(() => {
     if (client.length > 0 && infos.length > 0) {
       const updatedInfos = infos.map((docD) => {
         const matchingClient = client.find((docC) => docC["COD."] == docD.cliente);
-        const matchingSeller = vendedores.find((docC) => docC.cod == docD.vendedor);
-        
+        const matchingSeller = seller.find((docC) => docC.cod == docD.vendedor);
+
         const clienteName = matchingClient ? matchingClient.CLIENTES : "Cliente no encontrado";
         const vendedorName = matchingSeller ? matchingSeller.name : "Vendedor no encontrado";
 
@@ -79,13 +89,16 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/" element={<Inicio />} />
-          <Route path="/AgregarDatos" element={<AgregarDa />} />
-          <Route 
-                    path="/Listagral" 
-                    element={infos.length > 0 ? <ListaGral infos={infos} /> : <Loading/>} 
-                />
+          <Route path="/AgregarDatos" element={<AgregarDa infos={infos} />} />
+          <Route
+            path="/Listagral"
+
+            element={infos.length > 0 ? <ListaGral infos={infos} /> : <Loading />}
+          />
+
           <Route path="/registraruser" element={<RegistrarUser />} />
           <Route path="/excel" element={<Excel />} />
+          <Route path="*" element={<InicioSesion />} />
         </Routes>
       </AuthProvider>
     </div>

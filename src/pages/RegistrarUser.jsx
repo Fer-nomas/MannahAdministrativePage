@@ -16,7 +16,7 @@ function RegistrarUser() {
   const [userData, setUserData] = useState([])
   const [user, setUser] = useLocalStorage("user",{})
   const [isOpen, setIsOpen] = useState(false);
-  const options = ['Admin',"Legal","Deposito","Contable"];
+  const options = ['Admin',"Legal","Contable","Deposito Centro","Deposito Km10"];
   const [inputs, setInputs] = useState({
     name: "",
     password: "",

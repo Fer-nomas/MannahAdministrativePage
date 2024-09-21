@@ -13,7 +13,7 @@ function Header() {
             <img className='h-20' src="https://mannah.com.py/wp-content/uploads/2024/02/cropped-LOGO-MANNAH-512X512-1-300x149.png" alt="" />
             <div className='flex justify-center w-full gap-6 text-xs font-bold cursor-pointer'>
                 <Link to="/agregardatos">
-                    <div className='py-2 hover:text-[#414193] rounded-full hover:bg-[#7878ce1a] px-4 duration-200'>Agregar Datos</div>
+                    <div className='py-2 hover:text-[#414193]  rounded-full hover:bg-[#7878ce1a] px-4 duration-200'>Agregar Datos</div>
                 </Link>
                 <Link to="/listagral">
                     <div className='py-2 hover:text-[#414193] rounded-full hover:bg-[#7878ce1a] px-4 duration-200'>Lista General</div>

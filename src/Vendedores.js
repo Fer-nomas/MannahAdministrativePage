@@ -8,5 +8,5 @@ export let vendedores = [
     {cod:60,name:"OMAR GHOTME"},
     {cod:90,name:"MANNAH S.R.L."},
     {cod:99,name:"KHALED GHOTME"},
-    
+    {cod:57,name:"Carmen Benitez"},
 ]
