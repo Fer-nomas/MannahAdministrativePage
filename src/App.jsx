@@ -85,7 +85,7 @@ function App() {
   }, [client, infos]);
 
   return (
-    <div className="w-screen h-screen overflow-x-hidden">
+    <div className="w-screen h-screen overflow-x-hidden bg-transparent">
       <AuthProvider>
         <Routes>
           <Route path="/" element={<Inicio />} />
