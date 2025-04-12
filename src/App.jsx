@@ -6,10 +6,9 @@ import AuthProvider from "../context/AuthContext.jsx";
 import RegistrarUser from "./pages/RegistrarUser.jsx";
 import Excel from "./pages/Excel.jsx";
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, getDocs, addDoc } from "firebase/firestore";
+import { collection, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../firebase/firebase.js";
 import { useLocalStorage } from "./CustomHooks/useLocalStorage.js";
-import { vendedores } from "./Vendedores.js";
 import Loading from "./Loading/Loading.jsx";
 import InicioSesion from "./pages/InicioSesion.jsx";
 
@@ -17,26 +16,39 @@ function App() {
   const [seller, setSeller] = useLocalStorage("vendedores", []);
   const [client, setClient] = useLocalStorage("clientes", []);
   const [infos, setInfos] = useState("");
-  const [clientsLoaded, setClientsLoaded] = useState(false);
 
   useEffect(() => {
     const unsubscribeDatos = onSnapshot(collection(db, "datos"), (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
-      console.log("Datos Cargados");
-      
+      const allData = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
+
+      // Calculate date 3 months ago
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+      // Filter data for documents with hora[0] that isn't older than 3 months
+      const filteredData = allData.filter(doc => {
+        // Check if hora exists and has at least one element
+        if (doc.hora && doc.hora.length > 0) {
+          const docDate = new Date(doc.hora[0]);
+          return docDate >= threeMonthsAgo;
+        }
+        return false; // Exclude docs without proper hora data
+      });
+
+      console.log("Datos Cargados (filtrados por 3 meses)");
+
       setInfos((prevInfos) => {
-        if (JSON.stringify(prevInfos) !== JSON.stringify(data)) {
-          // Solo actualiza si los datos han cambiado
-          return data;
+        if (JSON.stringify(prevInfos) !== JSON.stringify(filteredData)) {
+          return filteredData;
         }
         return prevInfos;
       });
     });
 
     return () => unsubscribeDatos();
-  }, []); // Ejecuta solo una vez al montar
+  }, []);// Ejecuta solo una vez al montar
 
-  
+
   useEffect(() => {
     const getClient = async () => {
       const clientSnapshot = await getDocs(collection(db, "clientes"));
@@ -95,6 +107,7 @@ function App() {
 
             element={infos.length > 0 ? <ListaGral infos={infos} /> : <Loading />}
           />
+          <Route path="/imprimirentre" element={<RegistrarUser />} />
 
           <Route path="/registraruser" element={<RegistrarUser />} />
           <Route path="/excel" element={<Excel />} />
